@@ -5,7 +5,6 @@ import { cookies } from "next/headers";
 import AdminClient from "./adminClient";
 
 export default async function AdminPage() {
-  // auth di server
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,7 +12,7 @@ export default async function AdminPage() {
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
-        setAll: () => {}, // server component: tidak set cookie di sini
+        setAll: () => {},
       },
     }
   );
@@ -23,10 +22,10 @@ export default async function AdminPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // ambil cabang user (user_store)
+  // Ambil data user_store (termasuk kolom 'name' baru)
   const { data: us } = await supabase
     .from("user_store")
-    .select("store_id, role")
+    .select("store_id, role, name") // <-- Tambahkan 'name'
     .eq("user_id", user.id)
     .single();
 
@@ -36,5 +35,21 @@ export default async function AdminPage() {
     );
   }
 
-  return <AdminClient email={user.email ?? ""} storeId={us.store_id} />;
+  // Ambil data nama store
+  const { data: store } = await supabase
+    .from("stores")
+    .select("name")
+    .eq("id", us.store_id)
+    .single();
+
+  const displayName = us.name || user.email || "";
+  const storeName = store?.name || "Nama Cabang Tidak Ditemukan";
+
+  return (
+    <AdminClient
+      displayName={displayName}
+      storeId={us.store_id}
+      storeName={storeName}
+    />
+  );
 }

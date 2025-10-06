@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supaClient } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase-browser";
 
 export default function LoginPage() {
+  const supaClient = createClient(); // Buat instance di dalam komponen
+
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
@@ -41,7 +43,7 @@ export default function LoginPage() {
             Login Admin
           </h1>
           <p className="text-sm text-slate-500 text-center mt-1">
-            Masuk dengan email & password Supabase.
+            Masuk dengan email & password anda.
           </p>
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4">

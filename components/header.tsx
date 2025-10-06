@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { supaClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-browser";
 
 export default function Header() {
   const pathname = usePathname();
-
+  const supaClient = createClient();
   // Hooks selalu di top-level
   const [email, setEmail] = useState<string | null>(null);
   const [ready, setReady] = useState(false); // <- guard untuk hydration
