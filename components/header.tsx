@@ -55,7 +55,7 @@ export default function Header() {
                 href="/admin"
                 className="px-3 py-1.5 hover:bg-slate-100 rounded-lg"
               >
-                Admin
+                Dashboard
               </Link>
               <button
                 onClick={signOut}
