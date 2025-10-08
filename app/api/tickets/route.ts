@@ -1,10 +1,10 @@
+// app/api/tickets/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { serverClient } from "@/lib/supabase";
 import { newPublicId, todayYMD } from "@/lib/utils";
 
-/**
- * Body JSON: { storeId: string, service: "A" | "B" | "C" }
- */
+const AVG_SERVICE_TIME = 5; // Asumsi waktu layanan: 5 menit per orang
+
 export async function POST(req: NextRequest) {
   try {
     const { storeId, service } = await req.json();
@@ -15,7 +15,29 @@ export async function POST(req: NextRequest) {
     const supa = serverClient();
     const ymd = todayYMD();
 
-    // ambil counter hari ini; kalau belum ada, buat
+    // Hitung berapa yg waiting SEBELUM tiket ini dibuat
+    const { count: waitingBeforeCount } = await supa
+      .from("tickets")
+      .select("*", { head: true, count: "exact" })
+      .eq("store_id", storeId)
+      .eq("service", service)
+      .eq("status", "waiting")
+      .eq("ymd", ymd);
+
+    // Hitung juga berapa orang yang sedang dilayani untuk layanan ini
+    const { count: servingCount } = await supa
+      .from("tickets")
+      .select("*", { head: true, count: "exact" })
+      .eq("store_id", storeId)
+      .eq("service", service)
+      .eq("status", "serving")
+      .eq("ymd", ymd);
+
+    // Kalkulasi estimasi waktu
+    const estimatedWaitTime =
+      ((waitingBeforeCount ?? 0) + (servingCount ?? 0)) * AVG_SERVICE_TIME;
+
+    // --- Sisa logika (counter, insert tiket) sama seperti kode Anda ---
     const { data: counter } = await supa
       .from("counters")
       .select("*")
@@ -23,16 +45,13 @@ export async function POST(req: NextRequest) {
       .eq("service", service)
       .eq("ymd", ymd)
       .maybeSingle();
-
     const next = (counter?.last_number ?? 0) + 1;
 
     if (counter) {
       await supa
         .from("counters")
         .update({ last_number: next })
-        .eq("store_id", storeId)
-        .eq("service", service)
-        .eq("ymd", ymd);
+        .eq("id", counter.id);
     } else {
       await supa
         .from("counters")
@@ -48,20 +67,10 @@ export async function POST(req: NextRequest) {
       number: next,
       ticket,
       public_id: publicId,
-      ymd, // ⬅️ penting
+      ymd,
+      status: "waiting",
     });
 
-    // hitung berapa yg waiting sebelum tiket ini
-    const { count } = await supa
-      .from("tickets")
-      .select("*", { head: true, count: "exact" })
-      .eq("store_id", storeId)
-      .eq("service", service)
-      .eq("status", "waiting")
-      .eq("ymd", ymd); // ⬅️ hanya hari ini
-    const waitingBefore = Math.max((count ?? 1) - 1, 0);
-
-    // sedang dilayani (terakhir)
     const { data: serving } = await supa
       .from("tickets")
       .select("ticket")
@@ -69,18 +78,21 @@ export async function POST(req: NextRequest) {
       .eq("service", service)
       .eq("status", "serving")
       .order("called_at", { ascending: false })
-      .eq("ymd", ymd) // ⬅️ hanya hari ini
+      .eq("ymd", ymd)
       .limit(1);
 
-    const statusUrl = `${process.env.PUBLIC_BASE_URL}/t/${publicId}`;
+    // Pastikan base URL ada, fallback ke localhost jika tidak diset
+    const baseUrl = process.env.PUBLIC_BASE_URL || "http://localhost:3000";
+    const statusUrl = `${baseUrl}/t/${publicId}`;
 
     return NextResponse.json({
       ok: true,
       ticket,
       publicId,
-      waitingBefore,
+      waitingBefore: waitingBeforeCount ?? 0,
       nowServing: serving?.[0]?.ticket ?? null,
       statusUrl,
+      estimatedWaitTime, // Kirim data estimasi waktu
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "error";

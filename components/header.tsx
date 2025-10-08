@@ -36,8 +36,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-10 backdrop-blur bg-white/60 border-b border-slate-200/60">
       <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="font-semibold tracking-tight">
-          Photoism
+        <Link href="/" className="flex items-center">
+          <img src="/logo.png" alt="Photoism Logo" className="h-8 w-auto" />
         </Link>
 
         <nav className="text-sm">
